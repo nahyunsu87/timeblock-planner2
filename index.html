@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>타임블럭 플래너 (08:00–19:00, 5분 단위)</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="title">타임블럭 플래너</div>
+    <div class="subtitle">08:00–19:00 · 5분 단위</div>
+  </header>
+
+  <main class="app">
+    <section class="calendar">
+      <div class="calendar-head">
+        <div class="head-label">시간</div>
+        <div class="head-main">일정</div>
+      </div>
+      <div class="calendar-body">
+        <div id="time-labels" class="time-labels"></div>
+        <div id="grid" class="grid" aria-label="타임블럭 그리드">
+          <div id="popover" class="popover hidden" role="dialog" aria-label="일정 편집">
+            <div class="popover-title">일정 편집</div>
+            <label>
+              업무명
+              <input id="titleInput" type="text" placeholder="예: 기획서 작성" />
+            </label>
+            <label>
+              일의 목적
+              <input id="purposeInput" type="text" placeholder="예: 초안 완성" />
+            </label>
+            <div class="time-readout">
+              <div>시작시간: <span id="startReadout">-</span></div>
+              <div>종료시간: <span id="endReadout">-</span></div>
+            </div>
+            <div class="popover-actions">
+              <button id="deleteBtn" class="danger" disabled>삭제</button>
+              <button id="closeBtn" class="ghost">닫기</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <section class="log">
+    <div class="log-head">
+      <div class="log-title">실시간 기록</div>
+      <button id="copyBtn" class="copy">전체 복사</button>
+    </div>
+    <div id="logList" class="log-list"></div>
+  </section>
+
+  <footer class="footer">
+    저장 기능은 포함되어 있지 않습니다. (새로고침하면 초기화)
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
