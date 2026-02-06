@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>타임블럭 플래너 (08:00–19:00, 5분 단위)</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.updated.css" />
 </head>
 <body>
   <header class="app-header">
@@ -50,13 +50,35 @@
       <div class="log-title">실시간 기록</div>
       <button id="copyBtn" class="copy">전체 복사</button>
     </div>
-    <div id="logList" class="log-list"></div>
+    <div class="log-table-wrap">
+  <table id="logTable" class="log-table" aria-label="실시간 기록 테이블">
+    <thead>
+      <tr>
+        <th>업무명</th>
+        <th>시작</th>
+        <th>종료</th>
+        <th>목적</th>
+        <th class="col-actions">작업</th>
+      </tr>
+    </thead>
+    <tbody id="logTbody"></tbody>
+    <tfoot>
+      <tr class="new-row">
+        <td><input id="newTitle" type="text" placeholder="예: 기획서 작성" /></td>
+        <td><input id="newStart" type="time" step="300" /></td>
+        <td><input id="newEnd" type="time" step="300" /></td>
+        <td><input id="newPurpose" type="text" placeholder="예: 초안 완성" /></td>
+        <td class="col-actions"><button id="addRowBtn" class="add">추가</button></td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
   </section>
 
   <footer class="footer">
     저장 기능은 포함되어 있지 않습니다. (새로고침하면 초기화)
   </footer>
 
-  <script src="app.js"></script>
+  <script src="app.updated.js"></script>
 </body>
 </html>
