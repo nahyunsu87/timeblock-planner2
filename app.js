@@ -48,9 +48,24 @@ function createTimeLabels() {
 
 function renderEvents() {
   grid.querySelectorAll(".event").forEach((el) => el.remove());
+
+  // 중복된 업무명(공백 정리/소문자화 기준)은 파란색으로 표시
+  const titleKeyCounts = new Map();
+  for (const ev of events) {
+    const key = (ev.title || "").trim().replace(/\s+/g, " ").toLowerCase();
+    if (!key) continue;
+    titleKeyCounts.set(key, (titleKeyCounts.get(key) || 0) + 1);
+  }
+
   events.forEach((event) => {
     const el = document.createElement("div");
-    el.className = "event" + (event.id === activeId ? " selected" : "");
+    const key = (event.title || "").trim().replace(/\s+/g, " ").toLowerCase();
+    const isDup = !!key && (titleKeyCounts.get(key) || 0) > 1;
+    const isCompact = (event.end - event.start) <= 2; // 5~10분(1~2슬롯)
+    el.className = "event"
+      + (event.id === activeId ? " selected" : "")
+      + (isDup ? " duplicate" : "")
+      + (isCompact ? " compact" : "");
     el.dataset.id = event.id;
     el.style.top = `${slotToPixels(event.start)}px`;
     el.style.height = `${slotToPixels(event.end - event.start)}px`;
@@ -114,15 +129,8 @@ function setActive(id) {
     startReadout.textContent = minutesToTime(event.start * SLOT_MINUTES);
     endReadout.textContent = minutesToTime(event.end * SLOT_MINUTES);
     deleteBtn.disabled = false;
-
-    // Render first so the newly-created block exists in the DOM,
-    // then position/show the popover.
-    renderEvents();
-    requestAnimationFrame(() => {
-      positionPopover(id);
-      popover.classList.remove("hidden");
-    });
-    return;
+    positionPopover(id);
+    popover.classList.remove("hidden");
   }
   renderEvents();
 }
@@ -154,6 +162,11 @@ function pointToSlot(clientY) {
 }
 
 function onPointerDownGrid(e) {
+  // 팝업이 열려있으면, 빈 칸 클릭은 "생성"이 아니라 "닫기"로 동작
+  if (!popover.classList.contains("hidden")) {
+    setActive(null);
+    return;
+  }
   if (e.target.closest(".event")) return;
   const startSlot = pointToSlot(e.clientY);
   const endSlot = clamp(startSlot + 1, 1, TOTAL_SLOTS);
@@ -265,27 +278,6 @@ function wireInputs() {
   window.addEventListener("keydown", (e) => {
     if (!activeId) return;
     if (e.key !== "Delete" && e.key !== "Backspace") return;
-
-    // If the user is typing in an input/textarea/select or contenteditable, never delete the block.
-    const t = e.target;
-    const tag = t && t.tagName ? t.tagName.toLowerCase() : "";
-    if (
-      tag === "input" ||
-      tag === "textarea" ||
-      tag === "select" ||
-      (t && t.isContentEditable) ||
-      (t && t.closest && t.closest('input, textarea, select, [contenteditable="true"]'))
-    ) {
-      return;
-    }
-
-    // Also guard against cases where focus is on an input even if event target differs.
-    const ae = document.activeElement;
-    const aeTag = ae && ae.tagName ? ae.tagName.toLowerCase() : "";
-    if (aeTag === "input" || aeTag === "textarea" || aeTag === "select" || (ae && ae.isContentEditable)) {
-      return;
-    }
-
     const index = events.findIndex((ev) => ev.id === activeId);
     if (index >= 0) events.splice(index, 1);
     setActive(null);
@@ -307,6 +299,18 @@ function wireInputs() {
 
 function init() {
   createTimeLabels();
+
+// 팝업이 열린 상태에서 팝업 바깥(빈 공간)을 누르면: 팝업만 닫고, 그 클릭으로는 새 칸반을 만들지 않음 (Google Calendar처럼)
+document.addEventListener("pointerdown", (e) => {
+  if (popover.classList.contains("hidden")) return;
+  if (popover.contains(e.target)) return; // 팝업 내부 클릭은 유지
+  if (e.target.closest(".event")) return; // 다른 칸반 클릭은 선택 전환 허용
+  // 나머지 모든 영역 클릭은 팝업만 닫기
+  setActive(null);
+  e.preventDefault();
+  e.stopPropagation();
+}, true);
+
   grid.addEventListener("pointerdown", onPointerDownGrid);
   grid.addEventListener("pointerdown", onPointerDownEvent);
   grid.addEventListener("pointerdown", (e) => {

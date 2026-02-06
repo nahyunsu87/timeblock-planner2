@@ -102,6 +102,7 @@ body {
 }
 
 .event {
+  overflow: hidden;
   position: absolute;
   left: 8px;
   right: 8px;
@@ -257,4 +258,27 @@ button.copy {
 button.ghost {
   background: #f1eee9;
   color: #3b3b3b;
+}
+/* 중복 칸반은 파란색으로 표시 */
+.event.duplicate {
+  background: linear-gradient(135deg, #5aa8ff, #2f6bd3);
+  border-color: #1f55b3;
+  color: #0b1f3a;
+  box-shadow: 0 8px 18px rgba(47,107,211,0.25);
+}
+/* 5~10분(짧은) 칸반은 텍스트가 겹치지 않도록 컴팩트 표시 */
+.event.compact {
+  padding: 4px 8px;
+}
+.event.compact .event-time {
+  display: none;
+}
+.event .event-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.event.compact .event-title {
+  font-size: 12px;
+  line-height: 1.1;
 }
