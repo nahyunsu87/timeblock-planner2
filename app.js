@@ -257,6 +257,12 @@ function onPointerUp() {
   dragState = null;
 }
 
+function isTypingTarget(el) {
+  if (!el) return false;
+  const tag = el.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable;
+}
+
 function wireInputs() {
   titleInput.addEventListener("input", (e) => updateActiveField("title", e.target.value));
   purposeInput.addEventListener("input", (e) => updateActiveField("purpose", e.target.value));
@@ -278,6 +284,7 @@ function wireInputs() {
   window.addEventListener("keydown", (e) => {
     if (!activeId) return;
     if (e.key !== "Delete" && e.key !== "Backspace") return;
+    if (isTypingTarget(document.activeElement)) return;
     const index = events.findIndex((ev) => ev.id === activeId);
     if (index >= 0) events.splice(index, 1);
     setActive(null);
