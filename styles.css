@@ -204,6 +204,19 @@ button.copy {
   white-space: pre-wrap;
 }
 
+.log-input {
+  margin-top: 10px;
+  width: 100%;
+  border: 1px solid #efe9e1;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  background: #ffffff;
+  resize: vertical;
+  min-height: 64px;
+}
+
 .footer {
   color: var(--muted);
   font-size: 12px;
@@ -417,6 +430,11 @@ button.ghost {
   }
 
   .log-list {
+    font-size: 12px;
+    padding: 10px;
+  }
+
+  .log-input {
     font-size: 12px;
     padding: 10px;
   }
