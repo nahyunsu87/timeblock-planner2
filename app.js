@@ -10,6 +10,7 @@ const deleteBtn = document.getElementById("deleteBtn");
 const closeBtn = document.getElementById("closeBtn");
 const logList = document.getElementById("logList");
 const copyBtn = document.getElementById("copyBtn");
+const manualLog = document.getElementById("manualLog");
 
 const START_MINUTES = 8 * 60;
 const END_MINUTES = 19 * 60;
@@ -23,6 +24,8 @@ function getSlotHeight() {
 const events = [];
 let activeId = null;
 let dragState = null;
+const undoStack = [];
+let isRestoring = false;
 
 function isMobile() {
   return window.innerWidth <= 600;
@@ -120,6 +123,50 @@ function renderLog() {
   logList.textContent = lines.join("\n");
 }
 
+function cloneEvents(list) {
+  return list.map((event) => ({ ...event }));
+}
+
+function pushHistory() {
+  if (isRestoring) return;
+  const snapshot = {
+    events: cloneEvents(events),
+    activeId,
+  };
+  const last = undoStack[undoStack.length - 1];
+  const lastSignature = last ? JSON.stringify(last.events) : "";
+  const nextSignature = JSON.stringify(snapshot.events);
+  if (lastSignature === nextSignature) return;
+  undoStack.push(snapshot);
+  if (undoStack.length > 100) undoStack.shift();
+}
+
+function restoreSnapshot(snapshot) {
+  if (!snapshot) return;
+  isRestoring = true;
+  events.length = 0;
+  snapshot.events.forEach((event) => events.push({ ...event }));
+  activeId = snapshot.activeId;
+  if (activeId && !events.find((event) => event.id === activeId)) {
+    activeId = null;
+  }
+  if (activeId) {
+    setActive(activeId);
+  } else {
+    closePopover();
+  }
+  isRestoring = false;
+}
+
+function getLogTextForCopy() {
+  const autoText = logList.textContent.trim();
+  const manualText = manualLog.value.trim();
+  if (autoText && manualText) {
+    return `${autoText}\n\n${manualText}`;
+  }
+  return autoText || manualText;
+}
+
 function closePopover() {
   activeId = null;
   titleInput.value = "";
@@ -173,6 +220,7 @@ function addEvent(startSlot, endSlot) {
 function updateActiveField(field, value) {
   const event = events.find((e) => e.id === activeId);
   if (!event) return;
+  pushHistory();
   event[field] = value;
   renderEvents();
 }
@@ -190,6 +238,7 @@ function onPointerDownGrid(e) {
     return;
   }
   if (e.target.closest(".event")) return;
+  pushHistory();
   const startSlot = pointToSlot(e.clientY);
   const endSlot = clamp(startSlot + 1, 1, TOTAL_SLOTS);
   addEvent(startSlot, endSlot);
@@ -210,24 +259,26 @@ function onPointerDownEvent(e) {
   if (!event) return;
 
   e.preventDefault();
+  eventEl.setPointerCapture(e.pointerId);
 
   const targetHandle = e.target.closest(".resize-handle");
   if (targetHandle) {
+    pushHistory();
     dragState = {
       type: targetHandle.classList.contains("top") ? "resize-top" : "resize-bottom",
       id,
       start: event.start,
       end: event.end,
+      startY: e.clientY,
     };
     return;
   }
 
-  const gridRect = grid.getBoundingClientRect();
-  const offsetPx = e.clientY - gridRect.top - eventEl.offsetTop;
+  pushHistory();
   dragState = {
     type: "move",
     id,
-    offsetPx,
+    startSlot: event.start,
     length: event.end - event.start,
     startX: e.clientX,
     startY: e.clientY,
@@ -258,22 +309,22 @@ function onPointerMove(e) {
   }
 
   if (dragState.type === "move" && dragState.didMove) {
-    const gridRect = grid.getBoundingClientRect();
-    const y = e.clientY - gridRect.top - dragState.offsetPx;
-    const slot = clamp(Math.round(y / getSlotHeight()), 0, TOTAL_SLOTS);
-    const start = clamp(slot, 0, TOTAL_SLOTS - dragState.length);
+    const deltaSlots = Math.round((e.clientY - dragState.startY) / getSlotHeight());
+    const start = clamp(dragState.startSlot + deltaSlots, 0, TOTAL_SLOTS - dragState.length);
     event.start = start;
     event.end = start + dragState.length;
   }
 
   if (dragState.type === "resize-top") {
-    const slot = pointToSlot(e.clientY);
-    event.start = clamp(Math.min(slot, event.end - 1), 0, event.end - 1);
+    const deltaSlots = Math.round((e.clientY - dragState.startY) / getSlotHeight());
+    const nextStart = clamp(dragState.start + deltaSlots, 0, dragState.end - 1);
+    event.start = Math.min(nextStart, event.end - 1);
   }
 
   if (dragState.type === "resize-bottom") {
-    const slot = pointToSlot(e.clientY);
-    event.end = clamp(Math.max(slot, event.start + 1), event.start + 1, TOTAL_SLOTS);
+    const deltaSlots = Math.round((e.clientY - dragState.startY) / getSlotHeight());
+    const nextEnd = clamp(dragState.end + deltaSlots, dragState.start + 1, TOTAL_SLOTS);
+    event.end = Math.max(nextEnd, event.start + 1);
   }
 
   renderEvents();
@@ -306,6 +357,7 @@ function wireInputs() {
   purposeInput.addEventListener("input", (e) => updateActiveField("purpose", e.target.value));
   deleteBtn.addEventListener("click", () => {
     if (!activeId) return;
+    pushHistory();
     const index = events.findIndex((e) => e.id === activeId);
     if (index >= 0) events.splice(index, 1);
     setActive(null);
@@ -327,18 +379,29 @@ function wireInputs() {
   });
 
   window.addEventListener("keydown", (e) => {
+    const isUndo = (e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "z";
+    if (!isUndo) return;
+    if (isTypingTarget(document.activeElement)) return;
+    const snapshot = undoStack.pop();
+    if (!snapshot) return;
+    e.preventDefault();
+    restoreSnapshot(snapshot);
+  });
+
+  window.addEventListener("keydown", (e) => {
     if (!activeId) return;
     if (e.key !== "Delete" && e.key !== "Backspace") return;
     if (isTypingTarget(document.activeElement)) return;
     // 모바일에서는 키보드 단축키 삭제 차단 (삭제 버튼 사용)
     if (isMobile()) return;
+    pushHistory();
     const index = events.findIndex((ev) => ev.id === activeId);
     if (index >= 0) events.splice(index, 1);
     setActive(null);
   });
 
   copyBtn.addEventListener("click", async () => {
-    const text = logList.textContent.trim();
+    const text = getLogTextForCopy();
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);
