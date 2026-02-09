@@ -285,7 +285,9 @@ function onPointerDownEvent(e) {
     didMove: false,
   };
 
-  setActive(id);
+  if (activeId !== id) {
+    setActive(id);
+  }
 }
 
 function onPointerMove(e) {
