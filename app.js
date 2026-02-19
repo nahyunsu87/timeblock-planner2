@@ -105,22 +105,66 @@ function renderEvents() {
   renderLog();
 }
 
-function renderLog() {
-  if (events.length === 0) {
-    logList.textContent = "아직 기록된 일정이 없습니다.";
-    return;
-  }
-  const lines = events
-    .slice()
-    .sort((a, b) => a.start - b.start)
+function getSortedEvents() {
+  return events.slice().sort((a, b) => a.start - b.start);
+}
+
+function getAutoLogText() {
+  if (events.length === 0) return "";
+  return getSortedEvents()
     .map((event) => {
       const start = minutesToTime(event.start * SLOT_MINUTES);
       const end = minutesToTime(event.end * SLOT_MINUTES);
       const title = event.title || "(업무명 없음)";
       const purpose = event.purpose || "(목적 없음)";
-      return `${title} / ${start} / ${end} / ${purpose}`;
+      return `${start} / ${end} / ${title} / ${purpose}`;
+    })
+    .join("\n");
+}
+
+function renderLog() {
+  logList.replaceChildren();
+
+  if (events.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "log-empty";
+    empty.textContent = "아직 기록된 일정이 없습니다.";
+    logList.appendChild(empty);
+    return;
+  }
+
+  const table = document.createElement("table");
+  table.className = "log-table";
+
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  ["시작시간", "종료 시간", "할 일", "목적"].forEach((label) => {
+    const th = document.createElement("th");
+    th.textContent = label;
+    headerRow.appendChild(th);
+  });
+  thead.appendChild(headerRow);
+
+  const tbody = document.createElement("tbody");
+  getSortedEvents().forEach((event) => {
+    const row = document.createElement("tr");
+    const start = minutesToTime(event.start * SLOT_MINUTES);
+    const end = minutesToTime(event.end * SLOT_MINUTES);
+    const title = event.title || "(업무명 없음)";
+    const purpose = event.purpose || "(목적 없음)";
+
+    [start, end, title, purpose].forEach((value) => {
+      const td = document.createElement("td");
+      td.textContent = value;
+      row.appendChild(td);
     });
-  logList.textContent = lines.join("\n");
+
+    tbody.appendChild(row);
+  });
+
+  table.appendChild(thead);
+  table.appendChild(tbody);
+  logList.appendChild(table);
 }
 
 function cloneEvents(list) {
@@ -159,7 +203,7 @@ function restoreSnapshot(snapshot) {
 }
 
 function getLogTextForCopy() {
-  const autoText = logList.textContent.trim();
+  const autoText = getAutoLogText();
   const manualText = manualLog.value.trim();
   if (autoText && manualText) {
     return `${autoText}\n\n${manualText}`;
