@@ -105,22 +105,137 @@ function renderEvents() {
   renderLog();
 }
 
-function renderLog() {
-  if (events.length === 0) {
-    logList.textContent = "아직 기록된 일정이 없습니다.";
-    return;
-  }
-  const lines = events
-    .slice()
-    .sort((a, b) => a.start - b.start)
+function getSortedEvents() {
+  return events.slice().sort((a, b) => a.start - b.start);
+}
+
+function getAutoLogText() {
+  if (events.length === 0) return "";
+  return getSortedEvents()
     .map((event) => {
       const start = minutesToTime(event.start * SLOT_MINUTES);
       const end = minutesToTime(event.end * SLOT_MINUTES);
       const title = event.title || "(업무명 없음)";
       const purpose = event.purpose || "(목적 없음)";
-      return `${title} / ${start} / ${end} / ${purpose}`;
-    });
-  logList.textContent = lines.join("\n");
+      return `${start} / ${end} / ${title} / ${purpose}`;
+    })
+    .join("\n");
+}
+
+function parseTimeToOffsetMinutes(value) {
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute) || minute < 0 || minute > 59) return null;
+  const total = hour * 60 + minute;
+  if (total < START_MINUTES || total > END_MINUTES) return null;
+  return total - START_MINUTES;
+}
+
+function updateEventFromLogCell(eventId, field, value) {
+  const event = events.find((item) => item.id === eventId);
+  if (!event) return;
+
+  const trimmed = value.trim();
+
+  if (field === "title" || field === "purpose") {
+    if ((event[field] || "") === trimmed) return;
+    pushHistory();
+    event[field] = trimmed;
+    renderEvents();
+    return;
+  }
+
+  const parsed = parseTimeToOffsetMinutes(trimmed);
+  if (parsed === null) {
+    renderEvents();
+    return;
+  }
+
+  const nextSlot = Math.round(parsed / SLOT_MINUTES);
+  if (field === "start") {
+    if (nextSlot >= event.end) {
+      renderEvents();
+      return;
+    }
+    if (nextSlot === event.start) return;
+    pushHistory();
+    event.start = nextSlot;
+    renderEvents();
+    return;
+  }
+
+  if (field === "end") {
+    if (nextSlot <= event.start) {
+      renderEvents();
+      return;
+    }
+    if (nextSlot === event.end) return;
+    pushHistory();
+    event.end = nextSlot;
+    renderEvents();
+  }
+}
+
+function makeEditableCell(value, eventId, field) {
+  const td = document.createElement("td");
+  td.contentEditable = "true";
+  td.spellcheck = false;
+  td.textContent = value;
+  td.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    td.blur();
+  });
+  td.addEventListener("blur", () => {
+    updateEventFromLogCell(eventId, field, td.textContent || "");
+  });
+  return td;
+}
+
+function renderLog() {
+  logList.replaceChildren();
+
+  if (events.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "log-empty";
+    empty.textContent = "아직 기록된 일정이 없습니다.";
+    logList.appendChild(empty);
+    return;
+  }
+
+  const table = document.createElement("table");
+  table.className = "log-table";
+
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  ["시작시간", "종료 시간", "할 일", "목적"].forEach((label) => {
+    const th = document.createElement("th");
+    th.textContent = label;
+    headerRow.appendChild(th);
+  });
+  thead.appendChild(headerRow);
+
+  const tbody = document.createElement("tbody");
+  getSortedEvents().forEach((event) => {
+    const row = document.createElement("tr");
+    const start = minutesToTime(event.start * SLOT_MINUTES);
+    const end = minutesToTime(event.end * SLOT_MINUTES);
+    const title = event.title || "";
+    const purpose = event.purpose || "";
+
+    row.appendChild(makeEditableCell(start, event.id, "start"));
+    row.appendChild(makeEditableCell(end, event.id, "end"));
+    row.appendChild(makeEditableCell(title, event.id, "title"));
+    row.appendChild(makeEditableCell(purpose, event.id, "purpose"));
+
+    tbody.appendChild(row);
+  });
+
+  table.appendChild(thead);
+  table.appendChild(tbody);
+  logList.appendChild(table);
 }
 
 function cloneEvents(list) {
@@ -159,7 +274,7 @@ function restoreSnapshot(snapshot) {
 }
 
 function getLogTextForCopy() {
-  const autoText = logList.textContent.trim();
+  const autoText = getAutoLogText();
   const manualText = manualLog.value.trim();
   if (autoText && manualText) {
     return `${autoText}\n\n${manualText}`;
@@ -233,11 +348,11 @@ function pointToSlot(clientY) {
 }
 
 function onPointerDownGrid(e) {
+  if (e.target !== grid) return;
   if (!popover.classList.contains("hidden")) {
     setActive(null);
     return;
   }
-  if (e.target.closest(".event")) return;
   pushHistory();
   const startSlot = pointToSlot(e.clientY);
   const endSlot = clamp(startSlot + 1, 1, TOTAL_SLOTS);
@@ -259,6 +374,7 @@ function onPointerDownEvent(e) {
   if (!event) return;
 
   e.preventDefault();
+  e.stopImmediatePropagation();
   eventEl.setPointerCapture(e.pointerId);
 
   const targetHandle = e.target.closest(".resize-handle");
@@ -459,8 +575,8 @@ function init() {
     e.stopPropagation();
   }, true);
 
-  grid.addEventListener("pointerdown", onPointerDownGrid);
   grid.addEventListener("pointerdown", onPointerDownEvent);
+  grid.addEventListener("pointerdown", onPointerDownGrid);
 
   // 이벤트 위에서 컨텍스트 메뉴 방지 (모바일 롱프레스)
   grid.addEventListener("contextmenu", (e) => {

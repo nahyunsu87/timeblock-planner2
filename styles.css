@@ -192,8 +192,6 @@ button.copy {
 }
 
 .log-list {
-  display: grid;
-  gap: 8px;
   font-size: 13px;
   color: var(--ink);
   background: #fbfaf7;
@@ -201,7 +199,43 @@ button.copy {
   border-radius: 10px;
   padding: 12px;
   min-height: 64px;
-  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+.log-empty {
+  color: var(--muted);
+}
+
+.log-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.log-table th,
+.log-table td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid #efe9e1;
+}
+
+.log-table td[contenteditable="true"] {
+  cursor: text;
+  background: #fffdf9;
+}
+
+.log-table td[contenteditable="true"]:focus {
+  outline: 2px solid rgba(47,107,79,0.25);
+  background: #ffffff;
+}
+
+
+.log-table th {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.log-table tbody tr:last-child td {
+  border-bottom: none;
 }
 
 .log-input {
