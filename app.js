@@ -277,11 +277,11 @@ function pointToSlot(clientY) {
 }
 
 function onPointerDownGrid(e) {
+  if (e.target.closest(".event")) return;
   if (!popover.classList.contains("hidden")) {
     setActive(null);
     return;
   }
-  if (e.target.closest(".event")) return;
   pushHistory();
   const startSlot = pointToSlot(e.clientY);
   const endSlot = clamp(startSlot + 1, 1, TOTAL_SLOTS);
