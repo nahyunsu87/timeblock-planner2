@@ -277,7 +277,7 @@ function pointToSlot(clientY) {
 }
 
 function onPointerDownGrid(e) {
-  if (e.target.closest(".event")) return;
+  if (e.target !== grid) return;
   if (!popover.classList.contains("hidden")) {
     setActive(null);
     return;
@@ -303,7 +303,7 @@ function onPointerDownEvent(e) {
   if (!event) return;
 
   e.preventDefault();
-  e.stopPropagation();
+  e.stopImmediatePropagation();
   eventEl.setPointerCapture(e.pointerId);
 
   const targetHandle = e.target.closest(".resize-handle");
