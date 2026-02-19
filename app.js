@@ -303,6 +303,7 @@ function onPointerDownEvent(e) {
   if (!event) return;
 
   e.preventDefault();
+  e.stopPropagation();
   eventEl.setPointerCapture(e.pointerId);
 
   const targetHandle = e.target.closest(".resize-handle");
@@ -503,8 +504,8 @@ function init() {
     e.stopPropagation();
   }, true);
 
-  grid.addEventListener("pointerdown", onPointerDownGrid);
   grid.addEventListener("pointerdown", onPointerDownEvent);
+  grid.addEventListener("pointerdown", onPointerDownGrid);
 
   // 이벤트 위에서 컨텍스트 메뉴 방지 (모바일 롱프레스)
   grid.addEventListener("contextmenu", (e) => {
