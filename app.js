@@ -66,6 +66,18 @@ function renderEvents() {
     titleKeyCounts.set(key, (titleKeyCounts.get(key) || 0) + 1);
   }
 
+  const overlapIds = new Set();
+  for (let i = 0; i < events.length; i++) {
+    for (let j = i + 1; j < events.length; j++) {
+      const a = events[i];
+      const b = events[j];
+      if (a.start < b.end && b.start < a.end) {
+        overlapIds.add(a.id);
+        overlapIds.add(b.id);
+      }
+    }
+  }
+
   events.forEach((event) => {
     const el = document.createElement("div");
     const key = (event.title || "").trim().replace(/\s+/g, " ").toLowerCase();
@@ -74,6 +86,7 @@ function renderEvents() {
     el.className = "event"
       + (event.id === activeId ? " selected" : "")
       + (isDup ? " duplicate" : "")
+      + (overlapIds.has(event.id) ? " overlap" : "")
       + (isCompact ? " compact" : "");
     el.dataset.id = event.id;
     el.style.top = `${slotToPixels(event.start)}px`;

@@ -119,6 +119,13 @@ body {
   -webkit-user-select: none;
 }
 
+.event.overlap {
+  background: linear-gradient(135deg, #ff8a8a, #ff5f5f);
+  border-color: #e04646;
+  color: #3a0f0f;
+  box-shadow: 0 8px 18px rgba(224,70,70,0.28);
+}
+
 .event.selected {
   outline: 2px solid var(--accent);
   box-shadow: 0 0 0 2px rgba(47,107,79,0.2);
