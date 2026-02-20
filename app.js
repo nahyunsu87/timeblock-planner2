@@ -122,6 +122,7 @@ function getAutoLogText() {
     .join("\n");
 }
 
+
 function renderLog() {
   logList.replaceChildren();
 
@@ -150,14 +151,6 @@ function renderLog() {
     const row = document.createElement("tr");
     const start = minutesToTime(event.start * SLOT_MINUTES);
     const end = minutesToTime(event.end * SLOT_MINUTES);
-    const title = event.title || "(업무명 없음)";
-    const purpose = event.purpose || "(목적 없음)";
-
-    [start, end, title, purpose].forEach((value) => {
-      const td = document.createElement("td");
-      td.textContent = value;
-      row.appendChild(td);
-    });
 
     tbody.appendChild(row);
   });
