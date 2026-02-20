@@ -192,8 +192,6 @@ button.copy {
 }
 
 .log-list {
-  display: grid;
-  gap: 8px;
   font-size: 13px;
   color: var(--ink);
   background: #fbfaf7;
@@ -202,6 +200,10 @@ button.copy {
   padding: 12px;
   min-height: 64px;
   overflow-x: auto;
+}
+
+.log-empty {
+  color: var(--muted);
 }
 
 .log-table {
@@ -224,24 +226,24 @@ button.copy {
   border-bottom: 1px solid #f0e9e0;
 }
 
+.log-table th,
+.log-table td {
+  text-align: left;
+}
+
 .log-table tbody tr:last-child td {
   border-bottom: none;
 }
 
-.log-table td[contenteditable=\"true\"] {
+.log-table td[contenteditable="true"] {
   cursor: text;
 }
 
-.log-table td[contenteditable=\"true\"]:focus {
+.log-table td[contenteditable="true"]:focus {
   outline: 2px solid var(--accent);
   border-radius: 6px;
   background: #eef7f1;
 }
-
-.log-empty {
-  color: var(--muted);
-}
-
 
 .footer {
   color: var(--muted);

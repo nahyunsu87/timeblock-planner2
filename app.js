@@ -266,6 +266,7 @@ function renderLog() {
 }
 
 function getAutoLogText() {
+  if (events.length === 0) return "";
   return getSortedEvents()
     .map((event) => {
       const start = minutesToTime(event.start * SLOT_MINUTES);
@@ -382,11 +383,11 @@ function pointToSlot(clientY) {
 }
 
 function onPointerDownGrid(e) {
+  if (e.target !== grid) return;
   if (!popover.classList.contains("hidden")) {
     setActive(null);
     return;
   }
-  if (e.target.closest(".event")) return;
   pushHistory();
   const startSlot = pointToSlot(e.clientY);
   const endSlot = clamp(startSlot + 1, 1, TOTAL_SLOTS);
@@ -408,6 +409,7 @@ function onPointerDownEvent(e) {
   if (!event) return;
 
   e.preventDefault();
+  e.stopImmediatePropagation();
   eventEl.setPointerCapture(e.pointerId);
 
   const targetHandle = e.target.closest(".resize-handle");
@@ -608,8 +610,8 @@ function init() {
     e.stopPropagation();
   }, true);
 
-  grid.addEventListener("pointerdown", onPointerDownGrid);
   grid.addEventListener("pointerdown", onPointerDownEvent);
+  grid.addEventListener("pointerdown", onPointerDownGrid);
 
   // 이벤트 위에서 컨텍스트 메뉴 방지 (모바일 롱프레스)
   grid.addEventListener("contextmenu", (e) => {
