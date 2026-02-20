@@ -10,7 +10,6 @@ const deleteBtn = document.getElementById("deleteBtn");
 const closeBtn = document.getElementById("closeBtn");
 const logList = document.getElementById("logList");
 const copyBtn = document.getElementById("copyBtn");
-const manualLog = document.getElementById("manualLog");
 
 const START_MINUTES = 8 * 60;
 const END_MINUTES = 19 * 60;
@@ -152,6 +151,12 @@ function renderLog() {
     const start = minutesToTime(event.start * SLOT_MINUTES);
     const end = minutesToTime(event.end * SLOT_MINUTES);
 
+    [start, end, event.title || "(업무명 없음)", event.purpose || "(목적 없음)"].forEach((value) => {
+      const td = document.createElement("td");
+      td.textContent = value;
+      row.appendChild(td);
+    });
+
     tbody.appendChild(row);
   });
 
@@ -196,12 +201,7 @@ function restoreSnapshot(snapshot) {
 }
 
 function getLogTextForCopy() {
-  const autoText = getAutoLogText();
-  const manualText = manualLog.value.trim();
-  if (autoText && manualText) {
-    return `${autoText}\n\n${manualText}`;
-  }
-  return autoText || manualText;
+  return getAutoLogText();
 }
 
 function closePopover() {
