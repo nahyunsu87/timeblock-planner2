@@ -10,7 +10,6 @@ const deleteBtn = document.getElementById("deleteBtn");
 const closeBtn = document.getElementById("closeBtn");
 const logList = document.getElementById("logList");
 const copyBtn = document.getElementById("copyBtn");
-const manualLog = document.getElementById("manualLog");
 
 const START_MINUTES = 8 * 60;
 const END_MINUTES = 19 * 60;
@@ -105,22 +104,177 @@ function renderEvents() {
   renderLog();
 }
 
-function renderLog() {
-  if (events.length === 0) {
-    logList.textContent = "아직 기록된 일정이 없습니다.";
+function getSortedEvents() {
+  return events.slice().sort((a, b) => a.start - b.start);
+}
+
+function parseTimeToSlot(value) {
+  const trimmed = value.trim();
+  const match = trimmed.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+  if (minutes < 0 || minutes >= 60) return null;
+  const absoluteMinutes = hours * 60 + minutes;
+  if (absoluteMinutes < START_MINUTES || absoluteMinutes > END_MINUTES) return null;
+  const offsetMinutes = absoluteMinutes - START_MINUTES;
+  if (offsetMinutes % SLOT_MINUTES !== 0) return null;
+  return offsetMinutes / SLOT_MINUTES;
+}
+
+function formatDisplayValue(event, field) {
+  if (field === "start") return minutesToTime(event.start * SLOT_MINUTES);
+  if (field === "end") return minutesToTime(event.end * SLOT_MINUTES);
+  if (field === "title") return event.title || "(업무명 없음)";
+  if (field === "purpose") return event.purpose || "(목적 없음)";
+  return "";
+}
+
+function commitCellEdit(td) {
+  const id = td.dataset.id;
+  const field = td.dataset.field;
+  const event = events.find((ev) => ev.id === id);
+  if (!event) return;
+
+  const raw = td.textContent.trim();
+  const currentText = formatDisplayValue(event, field);
+
+  if (field === "title" || field === "purpose") {
+    if (raw === event[field]) {
+      td.textContent = currentText;
+      return;
+    }
+    pushHistory();
+    event[field] = raw;
+    renderEvents();
     return;
   }
-  const lines = events
-    .slice()
-    .sort((a, b) => a.start - b.start)
+
+  const nextSlot = parseTimeToSlot(raw);
+  if (nextSlot == null) {
+    td.textContent = currentText;
+    return;
+  }
+
+  if (field === "start") {
+    const nextStart = clamp(nextSlot, 0, TOTAL_SLOTS - 1);
+    let nextEnd = event.end;
+    if (nextStart >= nextEnd) {
+      nextEnd = clamp(nextStart + 1, nextStart + 1, TOTAL_SLOTS);
+    }
+    if (nextStart === event.start && nextEnd === event.end) {
+      td.textContent = currentText;
+      return;
+    }
+    pushHistory();
+    event.start = nextStart;
+    event.end = nextEnd;
+  } else {
+    const nextEnd = clamp(nextSlot, event.start + 1, TOTAL_SLOTS);
+    if (nextEnd === event.end) {
+      td.textContent = currentText;
+      return;
+    }
+    pushHistory();
+    event.end = nextEnd;
+  }
+
+  renderEvents();
+}
+
+function attachEditableCell(td, event, field) {
+  td.contentEditable = "true";
+  td.dataset.id = event.id;
+  td.dataset.field = field;
+
+  td.addEventListener("focus", () => {
+    td.dataset.original = td.textContent.trim();
+    const selection = window.getSelection();
+    if (!selection) return;
+    const range = document.createRange();
+    range.selectNodeContents(td);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  });
+
+  td.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      td.blur();
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      td.textContent = td.dataset.original || td.textContent;
+      td.blur();
+    }
+  });
+
+  td.addEventListener("blur", () => {
+    commitCellEdit(td);
+  });
+}
+
+function renderLog() {
+  logList.replaceChildren();
+
+  if (events.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "log-empty";
+    empty.textContent = "아직 기록된 일정이 없습니다.";
+    logList.appendChild(empty);
+    return;
+  }
+
+  const table = document.createElement("table");
+  table.className = "log-table";
+
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  ["시작시간", "종료 시간", "할 일", "목적"].forEach((label) => {
+    const th = document.createElement("th");
+    th.textContent = label;
+    headerRow.appendChild(th);
+  });
+  thead.appendChild(headerRow);
+
+  const tbody = document.createElement("tbody");
+  getSortedEvents().forEach((event) => {
+    const row = document.createElement("tr");
+    row.dataset.id = event.id;
+
+    const cellConfigs = [
+      { field: "start", value: minutesToTime(event.start * SLOT_MINUTES) },
+      { field: "end", value: minutesToTime(event.end * SLOT_MINUTES) },
+      { field: "title", value: event.title || "(업무명 없음)" },
+      { field: "purpose", value: event.purpose || "(목적 없음)" },
+    ];
+
+    cellConfigs.forEach(({ field, value }) => {
+      const td = document.createElement("td");
+      td.textContent = value;
+      attachEditableCell(td, event, field);
+      row.appendChild(td);
+    });
+
+    tbody.appendChild(row);
+  });
+
+  table.appendChild(thead);
+  table.appendChild(tbody);
+  logList.appendChild(table);
+}
+
+function getAutoLogText() {
+  return getSortedEvents()
     .map((event) => {
       const start = minutesToTime(event.start * SLOT_MINUTES);
       const end = minutesToTime(event.end * SLOT_MINUTES);
       const title = event.title || "(업무명 없음)";
       const purpose = event.purpose || "(목적 없음)";
-      return `${title} / ${start} / ${end} / ${purpose}`;
-    });
-  logList.textContent = lines.join("\n");
+      return `${start} / ${end} / ${title} / ${purpose}`;
+    })
+    .join("\n");
 }
 
 function cloneEvents(list) {
@@ -159,12 +313,7 @@ function restoreSnapshot(snapshot) {
 }
 
 function getLogTextForCopy() {
-  const autoText = logList.textContent.trim();
-  const manualText = manualLog.value.trim();
-  if (autoText && manualText) {
-    return `${autoText}\n\n${manualText}`;
-  }
-  return autoText || manualText;
+  return getAutoLogText();
 }
 
 function closePopover() {

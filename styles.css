@@ -201,21 +201,47 @@ button.copy {
   border-radius: 10px;
   padding: 12px;
   min-height: 64px;
-  white-space: pre-wrap;
+  overflow-x: auto;
 }
 
-.log-input {
-  margin-top: 10px;
+.log-table {
   width: 100%;
-  border: 1px solid #efe9e1;
-  border-radius: 10px;
-  padding: 10px 12px;
+  border-collapse: collapse;
   font-size: 13px;
-  font-family: inherit;
-  background: #ffffff;
-  resize: vertical;
-  min-height: 64px;
 }
+
+.log-table thead th {
+  text-align: left;
+  font-weight: 700;
+  color: var(--muted);
+  padding: 6px 8px;
+  border-bottom: 1px solid #e5ded4;
+  background: #f6f2ec;
+}
+
+.log-table tbody td {
+  padding: 8px;
+  border-bottom: 1px solid #f0e9e0;
+}
+
+.log-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.log-table td[contenteditable=\"true\"] {
+  cursor: text;
+}
+
+.log-table td[contenteditable=\"true\"]:focus {
+  outline: 2px solid var(--accent);
+  border-radius: 6px;
+  background: #eef7f1;
+}
+
+.log-empty {
+  color: var(--muted);
+}
+
 
 .footer {
   color: var(--muted);
@@ -434,10 +460,6 @@ button.ghost {
     padding: 10px;
   }
 
-  .log-input {
-    font-size: 12px;
-    padding: 10px;
-  }
 
   button.copy {
     font-size: 12px;
