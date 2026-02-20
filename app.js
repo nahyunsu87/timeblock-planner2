@@ -178,19 +178,33 @@ function updateEventFromLogCell(eventId, field, value) {
   }
 }
 
-function makeEditableCell(value, eventId, field) {
+function makeInputCell(value, eventId, field) {
   const td = document.createElement("td");
-  td.contentEditable = "true";
-  td.spellcheck = false;
-  td.textContent = value;
-  td.addEventListener("keydown", (e) => {
+  const input = document.createElement("input");
+  input.className = "log-cell-input";
+
+  const isTimeField = field === "start" || field === "end";
+  if (isTimeField) {
+    input.type = "time";
+    input.step = String(SLOT_MINUTES * 60);
+    input.min = "08:00";
+    input.max = "19:00";
+  } else {
+    input.type = "text";
+    input.placeholder = field === "title" ? "할 일 입력" : "목적 입력";
+  }
+
+  input.value = value;
+  input.addEventListener("keydown", (e) => {
     if (e.key !== "Enter") return;
     e.preventDefault();
-    td.blur();
+    input.blur();
   });
-  td.addEventListener("blur", () => {
-    updateEventFromLogCell(eventId, field, td.textContent || "");
+  input.addEventListener("blur", () => {
+    updateEventFromLogCell(eventId, field, input.value || "");
   });
+
+  td.appendChild(input);
   return td;
 }
 
@@ -225,10 +239,10 @@ function renderLog() {
     const title = event.title || "";
     const purpose = event.purpose || "";
 
-    row.appendChild(makeEditableCell(start, event.id, "start"));
-    row.appendChild(makeEditableCell(end, event.id, "end"));
-    row.appendChild(makeEditableCell(title, event.id, "title"));
-    row.appendChild(makeEditableCell(purpose, event.id, "purpose"));
+    row.appendChild(makeInputCell(start, event.id, "start"));
+    row.appendChild(makeInputCell(end, event.id, "end"));
+    row.appendChild(makeInputCell(title, event.id, "title"));
+    row.appendChild(makeInputCell(purpose, event.id, "purpose"));
 
     tbody.appendChild(row);
   });
