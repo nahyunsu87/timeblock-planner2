@@ -122,91 +122,6 @@ function getAutoLogText() {
     .join("\n");
 }
 
-function parseTimeToOffsetMinutes(value) {
-  const match = value.trim().match(/^(\d{1,2}):(\d{2})$/);
-  if (!match) return null;
-  const hour = Number(match[1]);
-  const minute = Number(match[2]);
-  if (!Number.isInteger(hour) || !Number.isInteger(minute) || minute < 0 || minute > 59) return null;
-  const total = hour * 60 + minute;
-  if (total < START_MINUTES || total > END_MINUTES) return null;
-  return total - START_MINUTES;
-}
-
-function updateEventFromLogCell(eventId, field, value) {
-  const event = events.find((item) => item.id === eventId);
-  if (!event) return;
-
-  const trimmed = value.trim();
-
-  if (field === "title" || field === "purpose") {
-    if ((event[field] || "") === trimmed) return;
-    pushHistory();
-    event[field] = trimmed;
-    renderEvents();
-    return;
-  }
-
-  const parsed = parseTimeToOffsetMinutes(trimmed);
-  if (parsed === null) {
-    renderEvents();
-    return;
-  }
-
-  const nextSlot = Math.round(parsed / SLOT_MINUTES);
-  if (field === "start") {
-    if (nextSlot >= event.end) {
-      renderEvents();
-      return;
-    }
-    if (nextSlot === event.start) return;
-    pushHistory();
-    event.start = nextSlot;
-    renderEvents();
-    return;
-  }
-
-  if (field === "end") {
-    if (nextSlot <= event.start) {
-      renderEvents();
-      return;
-    }
-    if (nextSlot === event.end) return;
-    pushHistory();
-    event.end = nextSlot;
-    renderEvents();
-  }
-}
-
-function makeInputCell(value, eventId, field) {
-  const td = document.createElement("td");
-  const input = document.createElement("input");
-  input.className = "log-cell-input";
-
-  const isTimeField = field === "start" || field === "end";
-  if (isTimeField) {
-    input.type = "time";
-    input.step = String(SLOT_MINUTES * 60);
-    input.min = "08:00";
-    input.max = "19:00";
-  } else {
-    input.type = "text";
-    input.placeholder = field === "title" ? "할 일 입력" : "목적 입력";
-  }
-
-  input.value = value;
-  input.addEventListener("keydown", (e) => {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    input.blur();
-  });
-  input.addEventListener("blur", () => {
-    updateEventFromLogCell(eventId, field, input.value || "");
-  });
-
-  td.appendChild(input);
-  return td;
-}
 
 function renderLog() {
   logList.replaceChildren();
@@ -236,13 +151,6 @@ function renderLog() {
     const row = document.createElement("tr");
     const start = minutesToTime(event.start * SLOT_MINUTES);
     const end = minutesToTime(event.end * SLOT_MINUTES);
-    const title = event.title || "";
-    const purpose = event.purpose || "";
-
-    row.appendChild(makeInputCell(start, event.id, "start"));
-    row.appendChild(makeInputCell(end, event.id, "end"));
-    row.appendChild(makeInputCell(title, event.id, "title"));
-    row.appendChild(makeInputCell(purpose, event.id, "purpose"));
 
     tbody.appendChild(row);
   });

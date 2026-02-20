@@ -218,21 +218,6 @@ button.copy {
   border-bottom: 1px solid #efe9e1;
 }
 
-.log-cell-input {
-  width: 100%;
-  border: 1px solid #ded8d1;
-  background: #fffdf9;
-  border-radius: 6px;
-  padding: 6px 8px;
-  font: inherit;
-  color: inherit;
-}
-
-.log-cell-input:focus {
-  outline: 2px solid rgba(47,107,79,0.25);
-  border-color: #9fbea9;
-  background: #ffffff;
-}
 
 .log-table th {
   font-size: 12px;
