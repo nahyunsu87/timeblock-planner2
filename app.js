@@ -47,6 +47,12 @@ function formatDurationMinutes(lengthSlots) {
   return parts.join(" ");
 }
 
+function formatTimeRange(event) {
+  const start = minutesToTime(event.start * SLOT_MINUTES);
+  const end = minutesToTime(event.end * SLOT_MINUTES);
+  return `${start}–${end}`;
+}
+
 function slotToPixels(slot) {
   return slot * getSlotHeight();
 }
@@ -106,7 +112,7 @@ function renderEvents() {
     line.className = "event-line";
     const titleText = event.title || "(업무명 없음)";
     const durationText = formatDurationMinutes(event.end - event.start);
-    line.textContent = `${titleText} (${durationText})`;
+    line.textContent = `${titleText} (${durationText} · ${formatTimeRange(event)})`;
 
     const handleTop = document.createElement("div");
     handleTop.className = "resize-handle top";
@@ -599,18 +605,48 @@ function positionPopover(id) {
   const ph = popover.offsetHeight;
   const pw = popover.offsetWidth;
 
-  let top = eventRect.top;
-  let left = eventRect.right + 8;
+  const viewportW = window.innerWidth;
+  const viewportH = window.innerHeight;
+  const margin = 12;
 
-  if (left + pw > window.innerWidth - 16) {
-    left = eventRect.left - pw - 8;
-  }
-  if (left < 16) left = 16;
+  const candidates = [];
 
-  if (top + ph > window.innerHeight - 16) {
-    top = window.innerHeight - ph - 16;
-  }
-  if (top < 16) top = 16;
+  // 우측 배치
+  candidates.push({
+    name: "right",
+    top: clamp(eventRect.top, margin, viewportH - ph - margin),
+    left: eventRect.right + margin,
+    fits: eventRect.right + margin + pw <= viewportW - margin,
+  });
+
+  // 좌측 배치
+  candidates.push({
+    name: "left",
+    top: clamp(eventRect.top, margin, viewportH - ph - margin),
+    left: eventRect.left - pw - margin,
+    fits: eventRect.left - pw - margin >= margin,
+  });
+
+  // 위쪽 배치
+  candidates.push({
+    name: "top",
+    top: eventRect.top - ph - margin,
+    left: clamp(eventRect.left, margin, viewportW - pw - margin),
+    fits: eventRect.top - ph - margin >= margin,
+  });
+
+  // 아래쪽 배치
+  candidates.push({
+    name: "bottom",
+    top: eventRect.bottom + margin,
+    left: clamp(eventRect.left, margin, viewportW - pw - margin),
+    fits: eventRect.bottom + margin + ph <= viewportH - margin,
+  });
+
+  const chosen = candidates.find((c) => c.fits) || candidates[0];
+
+  const top = clamp(chosen.top, margin, viewportH - ph - margin);
+  const left = clamp(chosen.left, margin, viewportW - pw - margin);
 
   popover.style.top = `${top}px`;
   popover.style.left = `${left}px`;
