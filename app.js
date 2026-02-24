@@ -37,6 +37,16 @@ function minutesToTime(mins) {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
+function formatDurationMinutes(lengthSlots) {
+  const totalMinutes = lengthSlots * SLOT_MINUTES;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  const parts = [];
+  if (hours > 0) parts.push(`${hours}시간`);
+  parts.push(`${minutes}분`);
+  return parts.join(" ");
+}
+
 function slotToPixels(slot) {
   return slot * getSlotHeight();
 }
@@ -92,13 +102,11 @@ function renderEvents() {
     el.style.top = `${slotToPixels(event.start)}px`;
     el.style.height = `${slotToPixels(event.end - event.start)}px`;
 
-    const title = document.createElement("div");
-    title.className = "event-title";
-    title.textContent = event.title || "(업무명 없음)";
-
-    const time = document.createElement("div");
-    time.className = "event-time";
-    time.textContent = `${minutesToTime(event.start * SLOT_MINUTES)} - ${minutesToTime(event.end * SLOT_MINUTES)}`;
+    const line = document.createElement("div");
+    line.className = "event-line";
+    const titleText = event.title || "(업무명 없음)";
+    const durationText = formatDurationMinutes(event.end - event.start);
+    line.textContent = `${titleText} (${durationText})`;
 
     const handleTop = document.createElement("div");
     handleTop.className = "resize-handle top";
@@ -106,8 +114,7 @@ function renderEvents() {
     const handleBottom = document.createElement("div");
     handleBottom.className = "resize-handle bottom";
 
-    el.appendChild(title);
-    el.appendChild(time);
+    el.appendChild(line);
     el.appendChild(handleTop);
     el.appendChild(handleBottom);
 

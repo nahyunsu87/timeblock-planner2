@@ -131,15 +131,12 @@ body {
   box-shadow: 0 0 0 2px rgba(47,107,79,0.2);
 }
 
-.event-title {
+.event-line {
   font-weight: 700;
   font-size: 13px;
-}
-
-.event-time {
-  font-size: 11px;
-  color: #5b3a2b;
-  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .resize-handle {
@@ -323,15 +320,7 @@ button.ghost {
 .event.compact {
   padding: 4px 8px;
 }
-.event.compact .event-time {
-  display: none;
-}
-.event .event-title {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.event.compact .event-title {
+.event.compact .event-line {
   font-size: 12px;
   line-height: 1.1;
 }
