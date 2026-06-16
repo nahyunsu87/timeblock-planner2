@@ -15,6 +15,18 @@
 
 * { box-sizing: border-box; }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 body {
   margin: 0;
   font-family: var(--font);
@@ -131,6 +143,13 @@ body {
   box-shadow: 0 0 0 2px rgba(47,107,79,0.2);
 }
 
+.event:focus-visible,
+button:focus-visible,
+.popover input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .event-line {
   font-weight: 700;
   font-size: 13px;
@@ -166,6 +185,11 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 button.danger {
   background: #f05d5e;
   color: white;
@@ -188,11 +212,19 @@ button.copy {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   margin-bottom: 12px;
 }
 
 .log-title {
   font-weight: 700;
+}
+
+.log-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .log-list {
@@ -214,6 +246,7 @@ button.copy {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  table-layout: fixed;
 }
 
 .log-table thead th {
@@ -233,6 +266,16 @@ button.copy {
 .log-table th,
 .log-table td {
   text-align: left;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+
+.log-table th:nth-child(1),
+.log-table th:nth-child(2),
+.log-table td:nth-child(1),
+.log-table td:nth-child(2) {
+  width: 92px;
+  white-space: nowrap;
 }
 
 .log-table tbody tr:last-child td {
@@ -276,13 +319,16 @@ button.copy {
   margin-bottom: 8px;
 }
 
-.popover label {
+.popover-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  margin-bottom: 10px;
+}
+
+.popover-field label {
   font-size: 12px;
   color: var(--muted);
-  margin-bottom: 10px;
 }
 
 .popover input {
@@ -382,12 +428,8 @@ button.ghost {
     min-height: 28px;
   }
 
-  .event-title {
+  .event-line {
     font-size: 12px;
-  }
-
-  .event-time {
-    font-size: 10px;
   }
 
   /* 리사이즈 핸들 터치용 확대 */
@@ -421,9 +463,12 @@ button.ghost {
     margin-bottom: 12px;
   }
 
-  .popover label {
-    font-size: 13px;
+  .popover-field {
     margin-bottom: 12px;
+  }
+
+  .popover-field label {
+    font-size: 13px;
   }
 
   /* iOS 줌 방지: input font-size ≥ 16px */
@@ -453,13 +498,71 @@ button.ghost {
     font-size: 14px;
   }
 
+  .log-head {
+    align-items: flex-start;
+  }
+
+  .log-actions {
+    gap: 6px;
+  }
+
   .log-list {
     font-size: 12px;
     padding: 10px;
+    overflow-x: visible;
   }
 
+  .log-table,
+  .log-table tbody,
+  .log-table tr,
+  .log-table td {
+    display: block;
+    width: 100%;
+  }
 
-  button.copy {
+  .log-table thead {
+    display: none;
+  }
+
+  .log-table tbody tr {
+    padding: 8px 0;
+    border-bottom: 1px solid #f0e9e0;
+  }
+
+  .log-table tbody tr:last-child {
+    border-bottom: none;
+  }
+
+  .log-table tbody td {
+    display: grid;
+    grid-template-columns: 68px minmax(0, 1fr);
+    gap: 8px;
+    width: 100%;
+    padding: 4px 0;
+    border-bottom: none;
+    white-space: normal;
+    line-height: 1.4;
+  }
+
+  .log-table th:nth-child(1),
+  .log-table th:nth-child(2),
+  .log-table td:nth-child(1),
+  .log-table td:nth-child(2) {
+    width: 100%;
+    white-space: normal;
+  }
+
+  .log-table tbody td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-weight: 700;
+  }
+
+  .log-table td[contenteditable="true"]:focus {
+    border-radius: 6px;
+  }
+
+  .log-actions button {
     font-size: 12px;
     padding: 8px 12px;
   }
