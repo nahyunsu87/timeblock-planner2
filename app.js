@@ -10,11 +10,15 @@ const deleteBtn = document.getElementById("deleteBtn");
 const closeBtn = document.getElementById("closeBtn");
 const logList = document.getElementById("logList");
 const copyBtn = document.getElementById("copyBtn");
+const resetBtn = document.getElementById("resetBtn");
+const statusRegion = document.getElementById("statusRegion");
 
 const START_MINUTES = 8 * 60;
 const END_MINUTES = 19 * 60;
 const SLOT_MINUTES = 5;
 const TOTAL_SLOTS = (END_MINUTES - START_MINUTES) / SLOT_MINUTES;
+const STORAGE_KEY = "timeblock-planner:v1";
+const STORAGE_VERSION = 1;
 
 function getSlotHeight() {
   return parseInt(getComputedStyle(document.documentElement).getPropertyValue("--slot-height"), 10);
@@ -61,6 +65,84 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+function createEventId() {
+  if (window.crypto && typeof window.crypto.randomUUID === "function") {
+    return window.crypto.randomUUID();
+  }
+  return `event-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function isValidEventShape(event) {
+  if (!event || typeof event !== "object") return false;
+  if (typeof event.id !== "string" || event.id.trim() === "") return false;
+  if (!Number.isInteger(event.start) || !Number.isInteger(event.end)) return false;
+  if (event.start < 0 || event.end > TOTAL_SLOTS || event.start >= event.end) return false;
+  if (typeof event.title !== "string" || typeof event.purpose !== "string") return false;
+  return true;
+}
+
+function normalizeStoredEvent(event) {
+  if (!isValidEventShape(event)) return null;
+  return {
+    id: event.id,
+    start: event.start,
+    end: event.end,
+    title: event.title,
+    purpose: event.purpose,
+  };
+}
+
+function loadStoredEvents() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!parsed || parsed.version !== STORAGE_VERSION || !Array.isArray(parsed.events)) return;
+    events.length = 0;
+    parsed.events.forEach((event) => {
+      const normalized = normalizeStoredEvent(event);
+      if (normalized) events.push(normalized);
+    });
+  } catch {
+    // 저장소 접근이나 JSON 파싱 실패는 앱 사용을 막지 않는다.
+  }
+}
+
+function persistEvents() {
+  if (isRestoring) return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      version: STORAGE_VERSION,
+      savedAt: new Date().toISOString(),
+      events: cloneEvents(events),
+    }));
+  } catch {
+    // private mode 등에서 localStorage가 실패해도 화면 동작은 유지한다.
+  }
+}
+
+function clearStoredEvents() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // localStorage 삭제 실패는 화면 초기화를 막지 않는다.
+  }
+}
+
+function announceStatus(message) {
+  if (!statusRegion) return;
+  statusRegion.textContent = "";
+  window.setTimeout(() => {
+    statusRegion.textContent = message;
+  }, 0);
+}
+
+function updateActionButtons() {
+  const hasEvents = events.length > 0;
+  copyBtn.disabled = !hasEvents;
+  if (resetBtn) resetBtn.disabled = !hasEvents;
+}
+
 function createTimeLabels() {
   for (let h = 8; h <= 19; h++) {
     const label = document.createElement("div");
@@ -72,7 +154,8 @@ function createTimeLabels() {
   }
 }
 
-function renderEvents() {
+function renderEvents(options = {}) {
+  const { persist = true } = options;
   grid.querySelectorAll(".event").forEach((el) => el.remove());
 
   const titleKeyCounts = new Map();
@@ -105,6 +188,8 @@ function renderEvents() {
       + (overlapIds.has(event.id) ? " overlap" : "")
       + (isCompact ? " compact" : "");
     el.dataset.id = event.id;
+    el.tabIndex = 0;
+    el.setAttribute("role", "button");
     el.style.top = `${slotToPixels(event.start)}px`;
     el.style.height = `${slotToPixels(event.end - event.start)}px`;
 
@@ -113,6 +198,7 @@ function renderEvents() {
     const titleText = event.title || "(업무명 없음)";
     const durationText = formatDurationMinutes(event.end - event.start);
     line.textContent = `${titleText} (${durationText} · ${formatTimeRange(event)})`;
+    el.setAttribute("aria-label", `${titleText}, ${formatTimeRange(event)}, ${durationText}. Enter로 편집`);
 
     const handleTop = document.createElement("div");
     handleTop.className = "resize-handle top";
@@ -128,6 +214,8 @@ function renderEvents() {
   });
 
   renderLog();
+  updateActionButtons();
+  if (persist) persistEvents();
 }
 
 function getSortedEvents() {
@@ -180,10 +268,16 @@ function commitCellEdit(td) {
   const nextSlot = parseTimeToSlot(raw);
   if (nextSlot == null) {
     td.textContent = currentText;
+    announceStatus("시간은 08:00부터 19:00까지 5분 단위로 입력할 수 있습니다.");
     return;
   }
 
   if (field === "start") {
+    if (nextSlot >= TOTAL_SLOTS) {
+      td.textContent = currentText;
+      announceStatus("시작시간은 19:00보다 빨라야 합니다.");
+      return;
+    }
     const nextStart = clamp(nextSlot, 0, TOTAL_SLOTS - 1);
     let nextEnd = event.end;
     if (nextStart >= nextEnd) {
@@ -270,15 +364,17 @@ function renderLog() {
     row.dataset.id = event.id;
 
     const cellConfigs = [
-      { field: "start", value: minutesToTime(event.start * SLOT_MINUTES) },
-      { field: "end", value: minutesToTime(event.end * SLOT_MINUTES) },
-      { field: "title", value: event.title || "(업무명 없음)" },
-      { field: "purpose", value: event.purpose || "(목적 없음)" },
+      { label: "시작시간", field: "start", value: minutesToTime(event.start * SLOT_MINUTES) },
+      { label: "종료 시간", field: "end", value: minutesToTime(event.end * SLOT_MINUTES) },
+      { label: "할 일", field: "title", value: event.title || "(업무명 없음)" },
+      { label: "목적", field: "purpose", value: event.purpose || "(목적 없음)" },
     ];
 
-    cellConfigs.forEach(({ field, value }) => {
+    cellConfigs.forEach(({ label, field, value }) => {
       const td = document.createElement("td");
       td.textContent = value;
+      td.dataset.label = label;
+      td.setAttribute("aria-label", `${label} 편집`);
       attachEditableCell(td, event, field);
       row.appendChild(td);
     });
@@ -332,18 +428,20 @@ function restoreSnapshot(snapshot) {
     activeId = null;
   }
   if (activeId) {
-    setActive(activeId);
+    setActive(activeId, { persist: false });
   } else {
-    closePopover();
+    closePopover({ persist: false });
   }
   isRestoring = false;
+  persistEvents();
 }
 
 function getLogTextForCopy() {
   return getAutoLogText();
 }
 
-function closePopover() {
+function closePopover(options = {}) {
+  const { persist = true } = options;
   activeId = null;
   titleInput.value = "";
   purposeInput.value = "";
@@ -352,19 +450,19 @@ function closePopover() {
   deleteBtn.disabled = true;
   popover.classList.add("hidden");
   backdrop.classList.add("hidden");
-  renderEvents();
+  renderEvents({ persist });
 }
 
-function setActive(id) {
+function setActive(id, options = {}) {
   if (!id) {
-    closePopover();
+    closePopover(options);
     return;
   }
 
   activeId = id;
   const event = events.find((e) => e.id === id);
   if (!event) {
-    closePopover();
+    closePopover(options);
     return;
   }
 
@@ -378,12 +476,12 @@ function setActive(id) {
   popover.classList.remove("hidden");
   backdrop.classList.remove("hidden");
   positionPopover(id);
-  renderEvents();
+  renderEvents(options);
 }
 
 function addEvent(startSlot, endSlot) {
   const event = {
-    id: crypto.randomUUID(),
+    id: createEventId(),
     start: startSlot,
     end: endSlot,
     title: "",
@@ -544,6 +642,18 @@ function wireInputs() {
     setActive(null);
   });
 
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      if (events.length === 0) return;
+      pushHistory();
+      events.length = 0;
+      activeId = null;
+      clearStoredEvents();
+      closePopover({ persist: false });
+      announceStatus("전체 일정이 초기화되었습니다.");
+    });
+  }
+
   // 백드롭 클릭 → 팝업 닫기
   backdrop.addEventListener("pointerdown", (e) => {
     e.preventDefault();
@@ -579,13 +689,18 @@ function wireInputs() {
 
   copyBtn.addEventListener("click", async () => {
     const text = getLogTextForCopy();
-    if (!text) return;
+    if (!text) {
+      announceStatus("복사할 일정이 없습니다.");
+      return;
+    }
     try {
       await navigator.clipboard.writeText(text);
       copyBtn.textContent = "복사됨";
+      announceStatus("전체 기록을 복사했습니다.");
       setTimeout(() => (copyBtn.textContent = "전체 복사"), 1200);
     } catch {
       copyBtn.textContent = "복사 실패";
+      announceStatus("복사에 실패했습니다.");
       setTimeout(() => (copyBtn.textContent = "전체 복사"), 1200);
     }
   });
@@ -654,6 +769,7 @@ function positionPopover(id) {
 
 function init() {
   createTimeLabels();
+  loadStoredEvents();
 
   // 팝업 바깥 클릭 → 닫기 (Google Calendar 스타일)
   document.addEventListener("pointerdown", (e) => {
@@ -668,6 +784,13 @@ function init() {
 
   grid.addEventListener("pointerdown", onPointerDownEvent);
   grid.addEventListener("pointerdown", onPointerDownGrid);
+  grid.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const eventEl = e.target.closest(".event");
+    if (!eventEl) return;
+    e.preventDefault();
+    setActive(eventEl.dataset.id);
+  });
 
   // 이벤트 위에서 컨텍스트 메뉴 방지 (모바일 롱프레스)
   grid.addEventListener("contextmenu", (e) => {
@@ -682,7 +805,7 @@ function init() {
   window.addEventListener("pointermove", onPointerMove);
   window.addEventListener("pointerup", onPointerUp);
   wireInputs();
-  setActive(null);
+  closePopover({ persist: false });
 }
 
 init();
