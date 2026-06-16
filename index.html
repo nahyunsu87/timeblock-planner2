@@ -20,7 +20,7 @@
       </div>
       <div class="calendar-body">
         <div id="time-labels" class="time-labels"></div>
-        <div id="grid" class="grid" aria-label="타임블럭 그리드">
+        <div id="grid" class="grid" aria-label="타임블럭 그리드" role="group">
         </div>
       </div>
     </section>
@@ -29,27 +29,31 @@
   <section class="log">
     <div class="log-head">
       <div class="log-title">실시간 기록</div>
-      <button id="copyBtn" class="copy">전체 복사</button>
+      <div class="log-actions">
+        <button id="resetBtn" class="ghost" type="button" disabled>전체 초기화</button>
+        <button id="copyBtn" class="copy" type="button" disabled>전체 복사</button>
+      </div>
     </div>
     <div id="logList" class="log-list"></div>
+    <div id="statusRegion" class="sr-only" aria-live="polite" aria-atomic="true"></div>
   </section>
 
   <footer class="footer">
-    저장 기능은 포함되어 있지 않습니다. (새로고침하면 초기화)
+    일정은 이 브라우저에 자동 저장됩니다.
   </footer>
 
   <!-- 팝업: grid 바깥으로 이동 (overflow:hidden 회피) -->
   <div id="popover-backdrop" class="popover-backdrop hidden"></div>
-  <div id="popover" class="popover hidden" role="dialog" aria-label="일정 편집">
-    <div class="popover-title">일정 편집</div>
-    <label>
-      업무명
+  <div id="popover" class="popover hidden" role="dialog" aria-modal="true" aria-labelledby="popover-title">
+    <div id="popover-title" class="popover-title">일정 편집</div>
+    <div class="popover-field">
+      <label for="titleInput">업무명</label>
       <input id="titleInput" type="text" placeholder="예: 기획서 작성" />
-    </label>
-    <label>
-      일의 목적
+    </div>
+    <div class="popover-field">
+      <label for="purposeInput">일의 목적</label>
       <input id="purposeInput" type="text" placeholder="예: 초안 완성" />
-    </label>
+    </div>
     <div class="time-readout">
       <div>시작시간: <span id="startReadout">-</span></div>
       <div>종료시간: <span id="endReadout">-</span></div>
