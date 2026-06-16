@@ -8,8 +8,11 @@
 </head>
 <body>
   <header class="app-header">
-    <div class="title">타임블럭 플래너</div>
-    <div class="subtitle">08:00–19:00 · 5분 단위</div>
+    <div class="brand-block">
+      <div class="title">타임블럭 플래너</div>
+      <div class="subtitle">08:00–19:00 · 5분 단위</div>
+    </div>
+    <div class="status-pill">자동 저장</div>
   </header>
 
   <main class="app">
@@ -37,10 +40,6 @@
     <div id="logList" class="log-list"></div>
     <div id="statusRegion" class="sr-only" aria-live="polite" aria-atomic="true"></div>
   </section>
-
-  <footer class="footer">
-    일정은 이 브라우저에 자동 저장됩니다.
-  </footer>
 
   <!-- 팝업: grid 바깥으로 이동 (overflow:hidden 회피) -->
   <div id="popover-backdrop" class="popover-backdrop hidden"></div>
