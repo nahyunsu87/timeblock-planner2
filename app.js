@@ -11,12 +11,15 @@ const closeBtn = document.getElementById("closeBtn");
 const logList = document.getElementById("logList");
 const copyBtn = document.getElementById("copyBtn");
 const resetBtn = document.getElementById("resetBtn");
+const bulkInput = document.getElementById("bulkInput");
+const addBulkBtn = document.getElementById("addBulkBtn");
 const statusRegion = document.getElementById("statusRegion");
 
 const START_MINUTES = 8 * 60;
 const END_MINUTES = 19 * 60;
 const SLOT_MINUTES = 5;
 const TOTAL_SLOTS = (END_MINUTES - START_MINUTES) / SLOT_MINUTES;
+const DEFAULT_IMPORT_SLOTS = 6;
 const STORAGE_KEY = "timeblock-planner:v1";
 const STORAGE_VERSION = 1;
 
@@ -141,6 +144,103 @@ function updateActionButtons() {
   const hasEvents = events.length > 0;
   copyBtn.disabled = !hasEvents;
   if (resetBtn) resetBtn.disabled = !hasEvents;
+  if (addBulkBtn && bulkInput) addBulkBtn.disabled = bulkInput.value.trim() === "";
+}
+
+function cleanImportedTitle(value) {
+  return value
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/^\s*(?:[-*•]+|\d+[.)]|[A-Za-z가-힣][.)])\s+/, "")
+    .replace(/^\s*\[[ xX]\]\s+/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function cleanImportedPurpose(value) {
+  const purpose = cleanImportedTitle(value);
+  return purpose === "(목적 없음)" ? "" : purpose;
+}
+
+function parseBulkLine(line) {
+  const normalized = line.trim();
+  if (!normalized) return null;
+
+  const copiedMatch = normalized.match(/^(\d{1,2}:\d{2})\s*\/\s*(\d{1,2}:\d{2})\s*\/\s*(.+)$/);
+  if (copiedMatch) {
+    const startSlot = parseTimeToSlot(copiedMatch[1]);
+    const endSlot = parseTimeToSlot(copiedMatch[2]);
+    if (startSlot != null && endSlot != null && startSlot < endSlot) {
+      const bodyParts = copiedMatch[3].split(/\s+\/\s+/).map((part) => part.trim()).filter(Boolean);
+      const titleParts = bodyParts.length > 1 ? bodyParts.slice(0, -1) : bodyParts;
+      return {
+        start: startSlot,
+        end: endSlot,
+        title: cleanImportedTitle(titleParts.join(" / ")) || "(업무명 없음)",
+        purpose: cleanImportedPurpose(bodyParts.length > 1 ? bodyParts[bodyParts.length - 1] : ""),
+      };
+    }
+    return null;
+  }
+
+  const title = cleanImportedTitle(normalized);
+  if (!title) return null;
+  return { title, purpose: "" };
+}
+
+function parseBulkInput(value) {
+  return value
+    .split(/\r?\n/)
+    .map(parseBulkLine)
+    .filter(Boolean);
+}
+
+function getBulkStartSlot() {
+  if (events.length === 0) return 0;
+  const latestEnd = events.reduce((max, event) => Math.max(max, event.end), 0);
+  return latestEnd < TOTAL_SLOTS ? latestEnd : 0;
+}
+
+function createBulkEvents(records) {
+  if (records.length === 0) return [];
+
+  let startSlot = getBulkStartSlot();
+  let availableSlots = TOTAL_SLOTS - startSlot;
+  if (availableSlots < records.length) {
+    startSlot = 0;
+    availableSlots = TOTAL_SLOTS;
+  }
+
+  const count = Math.min(records.length, availableSlots);
+  const generatedLength = Math.max(1, Math.min(DEFAULT_IMPORT_SLOTS, Math.floor(availableSlots / count)));
+  const createdIds = [];
+
+  records.slice(0, count).forEach((record, index) => {
+    const fallbackStart = startSlot + index * generatedLength;
+    const start = Number.isInteger(record.start) ? record.start : fallbackStart;
+    const end = Number.isInteger(record.end)
+      ? record.end
+      : clamp(start + generatedLength, start + 1, TOTAL_SLOTS);
+
+    const event = {
+      id: createEventId(),
+      start: clamp(start, 0, TOTAL_SLOTS - 1),
+      end: clamp(end, clamp(start, 0, TOTAL_SLOTS - 1) + 1, TOTAL_SLOTS),
+      title: record.title,
+      purpose: record.purpose || "",
+    };
+    events.push(event);
+    createdIds.push(event.id);
+  });
+
+  return createdIds;
+}
+
+function focusLogCell(id, field) {
+  if (isMobile()) return;
+  window.requestAnimationFrame(() => {
+    const cell = logList.querySelector(`td[data-id="${id}"][data-field="${field}"]`);
+    if (cell) cell.focus();
+  });
 }
 
 function createTimeLabels() {
@@ -627,6 +727,29 @@ function isTypingTarget(el) {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable;
 }
 
+function importBulkInput() {
+  if (!bulkInput) return;
+  const records = parseBulkInput(bulkInput.value);
+  if (records.length === 0) {
+    announceStatus("추가할 업무명이 없습니다.");
+    updateActionButtons();
+    return;
+  }
+
+  pushHistory();
+  const createdIds = createBulkEvents(records);
+  bulkInput.value = "";
+  closePopover();
+
+  const skippedCount = records.length - createdIds.length;
+  const message = skippedCount > 0
+    ? `${createdIds.length}개 일정을 추가했습니다. ${skippedCount}개는 시간 범위를 넘어 제외했습니다.`
+    : `${createdIds.length}개 일정을 추가했습니다.`;
+  announceStatus(message);
+
+  if (createdIds[0]) focusLogCell(createdIds[0], "start");
+}
+
 function wireInputs() {
   titleInput.addEventListener("input", (e) => updateActiveField("title", e.target.value));
   purposeInput.addEventListener("input", (e) => updateActiveField("purpose", e.target.value));
@@ -641,6 +764,17 @@ function wireInputs() {
   closeBtn.addEventListener("click", () => {
     setActive(null);
   });
+
+  if (bulkInput && addBulkBtn) {
+    bulkInput.addEventListener("input", updateActionButtons);
+    bulkInput.addEventListener("keydown", (e) => {
+      const isSubmit = (e.metaKey || e.ctrlKey) && e.key === "Enter";
+      if (!isSubmit) return;
+      e.preventDefault();
+      importBulkInput();
+    });
+    addBulkBtn.addEventListener("click", importBulkInput);
+  }
 
   if (resetBtn) {
     resetBtn.addEventListener("click", () => {
