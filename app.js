@@ -20,6 +20,7 @@ const END_MINUTES = 19 * 60;
 const SLOT_MINUTES = 5;
 const TOTAL_SLOTS = (END_MINUTES - START_MINUTES) / SLOT_MINUTES;
 const DEFAULT_IMPORT_SLOTS = 6;
+const DEFAULT_IMPORT_START_SLOT = (9 * 60 - START_MINUTES) / SLOT_MINUTES;
 const STORAGE_KEY = "timeblock-planner:v1";
 const STORAGE_VERSION = 1;
 
@@ -195,9 +196,10 @@ function parseBulkInput(value) {
 }
 
 function getBulkStartSlot() {
-  if (events.length === 0) return 0;
+  if (events.length === 0) return DEFAULT_IMPORT_START_SLOT;
   const latestEnd = events.reduce((max, event) => Math.max(max, event.end), 0);
-  return latestEnd < TOTAL_SLOTS ? latestEnd : 0;
+  if (latestEnd < DEFAULT_IMPORT_START_SLOT) return DEFAULT_IMPORT_START_SLOT;
+  return latestEnd < TOTAL_SLOTS ? latestEnd : DEFAULT_IMPORT_START_SLOT;
 }
 
 function createBulkEvents(records) {
@@ -205,10 +207,6 @@ function createBulkEvents(records) {
 
   let startSlot = getBulkStartSlot();
   let availableSlots = TOTAL_SLOTS - startSlot;
-  if (availableSlots < records.length) {
-    startSlot = 0;
-    availableSlots = TOTAL_SLOTS;
-  }
 
   const count = Math.min(records.length, availableSlots);
   const generatedLength = Math.max(1, Math.min(DEFAULT_IMPORT_SLOTS, Math.floor(availableSlots / count)));
